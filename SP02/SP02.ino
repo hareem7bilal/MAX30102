@@ -2,12 +2,10 @@
 #define BLYNK_DEVICE_NAME "pulse oximeter"
 #define BLYNK_AUTH_TOKEN "JjI3mchXaUQ61Q79K9MQvTyK4OeMGoUt"
 
-
 #include <Wire.h>
 #include "MAX30105.h"
 #include "spo2_algorithm.h"
 #include <BlynkSimpleEsp32.h>
-
 
 MAX30105 particleSensor;
 
@@ -32,15 +30,17 @@ int8_t validHeartRate; //indicator to show if the heart rate calculation is vali
 byte pulseLED = 11; //Must be on PWM pin
 byte readLED = 13; //Blinks with each data read
 
+
 char auth[] = BLYNK_AUTH_TOKEN;             // You should get Auth Token in the Blynk App.
 char ssid[] = "D41-6";                              // Your WiFi credentials.
 char pass[] = "17171717";
+
 
 void setup()
 {
   Serial.begin(115200); // initialize serial communication at 115200 bits per second:
   Blynk.begin(auth, ssid, pass);
-  
+
   pinMode(pulseLED, OUTPUT);
   pinMode(readLED, OUTPUT);
 
@@ -67,7 +67,6 @@ void setup()
 
 void loop()
 {
- 
   bufferLength = 100; //buffer length of 100 stores 4 seconds of samples running at 25sps
 
   //read the first 100 samples, and determine the signal range
@@ -92,7 +91,7 @@ void loop()
   //Continuously taking samples from MAX30102.  Heart rate and SpO2 are calculated every 1 second
   while (1)
   {
-     Blynk.run();
+    Blynk.run();
     //dumping the first 25 sets of samples in the memory and shift the last 75 sets of samples to the top
     for (byte i = 25; i < 100; i++)
     {
@@ -129,6 +128,14 @@ void loop()
 
       Serial.print(F(", SPO2Valid="));
       Serial.println(validSPO2, DEC);
+
+      if (validSPO2) {
+        Blynk.virtualWrite(V4, spo2);
+      }
+      if (validHeartRate) {
+        Blynk.virtualWrite(V3, heartRate);
+      }
+
     }
 
     //After gathering 25 new samples recalculate HR and SP02
