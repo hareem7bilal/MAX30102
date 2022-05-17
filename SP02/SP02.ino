@@ -1,13 +1,18 @@
 #define BLYNK_TEMPLATE_ID "TMPLJdncHFvI"
 #define BLYNK_DEVICE_NAME "pulse oximeter"
 #define BLYNK_AUTH_TOKEN "JjI3mchXaUQ61Q79K9MQvTyK4OeMGoUt"
+#define SENSOR_PIN  21 // ESP32 pin GIOP21 connected to DS18B20 sensor's DQ pin
 
 #include <Wire.h>
 #include "MAX30105.h"
 #include "spo2_algorithm.h"
 #include <BlynkSimpleEsp32.h>
+#include <OneWire.h>
+#include <DallasTemperature.h>
 
 MAX30105 particleSensor;
+OneWire oneWire(SENSOR_PIN);
+DallasTemperature DS18B20(&oneWire);
 
 #define MAX_BRIGHTNESS 255
 
@@ -27,6 +32,8 @@ int8_t validSPO2; //indicator to show if the SPO2 calculation is valid
 int32_t heartRate; //heart rate value
 int8_t validHeartRate; //indicator to show if the heart rate calculation is valid
 
+float body_temperature; // body temperature in Celsius
+
 byte pulseLED = 11; //Must be on PWM pin
 byte readLED = 13; //Blinks with each data read
 
@@ -39,18 +46,26 @@ void setup()
 {
   Serial.begin(115200); // initialize serial communication at 115200 bits per second:
   Blynk.begin(auth, ssid, pass);
+ 
 
   pinMode(pulseLED, OUTPUT);
   pinMode(readLED, OUTPUT);
 
   // Initialize sensor
-  if (!particleSensor.begin(Wire, I2C_SPEED_FAST)) //Use default I2C port, 400kHz speed
+  if (!particleSensor.begin(Wire)) //Use default I2C port, 400kHz speed
   {
     Serial.println(F("MAX30105 was not found. Please check wiring/power."));
     while (1);
   }
 
-  Serial.println(F("Attach sensor to finger with rubber band. Press any key to start conversion"));
+   if (!DS18B20.begin())   // initialize the DS18B20 sensor
+  {
+    Serial.println(F("DS18B20 was not found. Please check wiring/power."));
+    while (1);
+  }
+  
+
+  Serial.println(F("Place your index finger on the sensor with steady pressure. Press any key to start conversion"));
   while (Serial.available() == 0) ; //wait until user presses a key
   Serial.read();
 
@@ -67,6 +82,7 @@ void setup()
 
 void loop()
 {
+
   bufferLength = 100; //buffer length of 100 stores 4 seconds of samples running at 25sps
 
   //read the first 100 samples, and determine the signal range
@@ -109,7 +125,10 @@ void loop()
       redBuffer[i] = particleSensor.getRed();
       irBuffer[i] = particleSensor.getIR();
       particleSensor.nextSample(); //We're finished with this sample so move to next sample
-      float temperature = particleSensor.readTemperature();
+      float room_temperature = particleSensor.readTemperature(); // read room temperature in °C
+      DS18B20.requestTemperatures();       // send the command to get temperatures
+      body_temperature = DS18B20.getTempCByIndex(0);  // read temperature in °C
+
       //send samples and calculation result to terminal program through UART
       Serial.print(F("red="));
       Serial.print(redBuffer[i], DEC);
@@ -128,19 +147,21 @@ void loop()
       Serial.print(F(", SPO2Valid="));
       Serial.print(validSPO2, DEC);
 
-      Serial.print(F(", temperature="));
-      Serial.println(temperature, 2);
+      Serial.print(F(", body temperature="));
+      Serial.print(body_temperature,2);
+
+      Serial.print(F(", room temperature="));
+      Serial.println(room_temperature, 2);
+
       Blynk.run();
 
-
-      
       if (validSPO2) {
         Blynk.virtualWrite(V4, spo2);
       }
       if (validHeartRate) {
         Blynk.virtualWrite(V3, heartRate);
       }
-      Blynk.virtualWrite(V2, temperature);
+      Blynk.virtualWrite(V2, room_temperature);
 
 
 

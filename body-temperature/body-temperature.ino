@@ -1,35 +1,30 @@
-#include <Wire.h>
+#include <OneWire.h>
+#include <DallasTemperature.h>
 
-#include "MAX30105.h"
-MAX30105 particleSensor;
+#define SENSOR_PIN  21 // ESP32 pin GIOP21 connected to DS18B20 sensor's DQ pin
+
+OneWire oneWire(SENSOR_PIN);
+DallasTemperature DS18B20(&oneWire);
+
+float tempC; // temperature in Celsius
+float tempF; // temperature in Fahrenheit
 
 void setup() {
-  Serial.begin(9600);
-  Serial.println("Initializing...");
-
-  // Initialize sensor
-  if (particleSensor.begin(Wire, I2C_SPEED_FAST) == false) { //Use default I2C port, 400kHz speed
-    Serial.println("MAX30102 was not found. Please check wiring/power. ");
-    while (1);
-  }
-
-  //The LEDs are very low power and won't affect the temp reading much but
-  //you may want to turn off the LEDs to avoid any local heating
-  particleSensor.setup(0); //Configure sensor. Turn off LEDs
-
-  particleSensor.enableDIETEMPRDY(); //Enable the temp ready interrupt. This is required.
+  Serial.begin(9600); // initialize serial
+  DS18B20.begin();    // initialize the DS18B20 sensor
 }
 
 void loop() {
-  float temperature = particleSensor.readTemperature();
+  DS18B20.requestTemperatures();       // send the command to get temperatures
+  tempC = DS18B20.getTempCByIndex(0);  // read temperature in °C
+  tempF = tempC * 9 / 5 + 32; // convert °C to °F
 
-  Serial.print("temperatureC=");
-  Serial.print(temperature, 4);
+  Serial.print("Temperature: ");
+  Serial.print(tempC);    // print the temperature in °C
+  Serial.print("°C");
+  Serial.print("  ~  ");  // separator between °C and °F
+  Serial.print(tempF);    // print the temperature in °F
+  Serial.println("°F");
 
-  float temperatureF = particleSensor.readTemperatureF();
-
-  Serial.print(" temperatureF=");
-  Serial.print(temperatureF, 4);
-
-  Serial.println();
+  delay(500);
 }

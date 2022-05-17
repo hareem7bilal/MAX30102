@@ -29,7 +29,7 @@ void setup() {
 
   
   // Initialize sensor
-  if (!particleSensor.begin(Wire, I2C_SPEED_FAST)) {
+  if (!particleSensor.begin(Wire)) {
     Serial.println("MAX30102 was not found. Please check wiring/power. ");
     while (1);
   }
