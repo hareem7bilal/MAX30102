@@ -1,6 +1,7 @@
 #define BLYNK_TEMPLATE_ID "TMPL7HGhh_2B"
 #define BLYNK_DEVICE_NAME "MAX30102 BPM"
 #define BLYNK_AUTH_TOKEN "6lTJdYR90xqI0ECPw-mQ1OlLDTBpZAWH"
+#define LED 4
 
 #include <Wire.h>
 #include "MAX30105.h"
@@ -21,27 +22,29 @@ char auth[] = BLYNK_AUTH_TOKEN;             // You should get Auth Token in the 
 char ssid[] = "D41-6";                              // Your WiFi credentials.
 char pass[] = "17171717";
 
-
+//use right middle finger/right thumb
 void setup() {
   Serial.begin(115200);
-  Serial.println("Initializing...");
   Blynk.begin(auth, ssid, pass);
+  pinMode(LED, OUTPUT);
 
-  
   // Initialize sensor
-  if (!particleSensor.begin(Wire)) {
+  if (!particleSensor.begin(Wire, I2C_SPEED_FAST)) {
     Serial.println("MAX30102 was not found. Please check wiring/power. ");
     while (1);
   }
   Serial.println("Place your index finger on the sensor with steady pressure.");
+  while (Serial.available() == 0) ; //wait until user presses a key
+  Serial.read();
 
   particleSensor.setup(); //Configure sensor with default settings
   particleSensor.setPulseAmplitudeRed(0x0A); //Turn Red LED to low to indicate sensor is running
   particleSensor.setPulseAmplitudeGreen(0); //Turn off Green LED
 }
 
+
+
 void loop() {
-   Blynk.run();
   long irValue = particleSensor.getIR();
 
   if (checkForBeat(irValue) == true) {
@@ -60,10 +63,10 @@ void loop() {
       for (byte x = 0 ; x < RATE_SIZE ; x++)
         beatAvg += rates[x];
       beatAvg /= RATE_SIZE;
-       Blynk.virtualWrite(V3, beatAvg);
+
     }
   }
-
+  Blynk.run();
   Serial.print("IR=");
   Serial.print(irValue);
   Serial.print(", BPM=");
@@ -71,10 +74,17 @@ void loop() {
   Serial.print(", Avg BPM=");
   Serial.print(beatAvg);
 
+  Blynk.virtualWrite(V3, beatAvg);
+
   if (irValue < 50000)
-    Serial.print(" No finger?");
-
- 
-
+    Serial.print("   No finger");
   Serial.println();
+
+
+  if (beatAvg<40||beatAvg>100)
+    digitalWrite(LED, HIGH);
+
+  else
+    digitalWrite(LED, LOW);
+
 }

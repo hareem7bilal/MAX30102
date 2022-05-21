@@ -1,16 +1,20 @@
 #define BLYNK_TEMPLATE_ID "TMPLJdncHFvI"
 #define BLYNK_DEVICE_NAME "pulse oximeter"
-#define BLYNK_AUTH_TOKEN "mEqiKfHIa_5QngS_SyaSJVVsoeRiQsrW"
+#define BLYNK_AUTH_TOKEN "JjI3mchXaUQ61Q79K9MQvTyK4OeMGoUt"
+#define SENSOR_PIN  21 // ESP32 pin GIOP21 connected to DS18B20 sensor's DQ pin
 
 #include <Wire.h>
 #include "MAX30105.h"
 #include "spo2_algorithm.h"
 #include <BlynkSimpleEsp32.h>
+#include <OneWire.h>
+#include <DallasTemperature.h>
 
 MAX30105 particleSensor;
+OneWire oneWire(SENSOR_PIN);
+DallasTemperature DS18B20(&oneWire);
 
 #define MAX_BRIGHTNESS 255
-#define LED 4
 
 #if defined(__AVR_ATmega328P__) || defined(__AVR_ATmega168__)
 //Arduino Uno doesn't have enough SRAM to store 100 samples of IR led data and red led data in 32-bit format
@@ -28,6 +32,8 @@ int8_t validSPO2; //indicator to show if the SPO2 calculation is valid
 int32_t heartRate; //heart rate value
 int8_t validHeartRate; //indicator to show if the heart rate calculation is valid
 
+float body_temperature; // body temperature in Celsius
+
 byte pulseLED = 11; //Must be on PWM pin
 byte readLED = 13; //Blinks with each data read
 
@@ -35,23 +41,26 @@ char auth[] = BLYNK_AUTH_TOKEN;             // You should get Auth Token in the 
 char ssid[] = "D41-6";                              // Your WiFi credentials.
 char pass[] = "17171717";
 
+
 void setup()
 {
   Serial.begin(115200); // initialize serial communication at 115200 bits per second:
   Blynk.begin(auth, ssid, pass);
-  pinMode(LED, OUTPUT);
+
 
   pinMode(pulseLED, OUTPUT);
   pinMode(readLED, OUTPUT);
 
   // Initialize sensor
-  if (!particleSensor.begin(Wire, I2C_SPEED_FAST)) //Use default I2C port, 400kHz speed
+  if (!particleSensor.begin(Wire)) //Use default I2C port, 400kHz speed
   {
-    Serial.println(F("MAX30105 was not found. Please check wiring/power."));
+    Serial.println(F("MAX30102 was not found. Please check wiring/power."));
     while (1);
   }
 
-  Serial.println(F("Attach sensor to finger with rubber band. Press any key to start conversion"));
+
+  DS18B20.begin(); // initialize the DS18B20 sensor
+  Serial.println(F("Place your index finger on the sensor with steady pressure. Press any key to start conversion"));
   while (Serial.available() == 0) ; //wait until user presses a key
   Serial.read();
 
@@ -63,11 +72,12 @@ void setup()
   int adcRange = 4096; //Options: 2048, 4096, 8192, 16384
 
   particleSensor.setup(ledBrightness, sampleAverage, ledMode, sampleRate, pulseWidth, adcRange); //Configure sensor with these settings
+  particleSensor.enableDIETEMPRDY(); //Enable the temp ready interrupt. This is required.
 }
 
 void loop()
 {
-  digitalWrite(LED, LOW);
+
   bufferLength = 100; //buffer length of 100 stores 4 seconds of samples running at 25sps
 
   //read the first 100 samples, and determine the signal range
@@ -110,6 +120,9 @@ void loop()
       redBuffer[i] = particleSensor.getRed();
       irBuffer[i] = particleSensor.getIR();
       particleSensor.nextSample(); //We're finished with this sample so move to next sample
+      float room_temperature = particleSensor.readTemperature(); // read room temperature in °C
+      DS18B20.requestTemperatures();       // send the command to get temperatures
+      body_temperature = DS18B20.getTempCByIndex(0);  // read temperature in °C
 
       //send samples and calculation result to terminal program through UART
       Serial.print(F("red="));
@@ -123,27 +136,36 @@ void loop()
       Serial.print(F(", HRvalid="));
       Serial.print(validHeartRate, DEC);
 
-      Blynk.run();
       Serial.print(F(", SPO2="));
       Serial.print(spo2, DEC);
 
       Serial.print(F(", SPO2Valid="));
-      Serial.println(validSPO2, DEC);
+      Serial.print(validSPO2, DEC);
 
-      if (validSPO2)
+      Serial.print(F(", body temperature="));
+      Serial.print(body_temperature, 2);
+
+      Serial.print(F(", room temperature="));
+      Serial.print(room_temperature, 2);
+
+      if (irBuffer[i] < 50000)
+        Serial.print(F(", No finger on sensor"));
+
+      Serial.println();
+
+      Blynk.run();
+
+      if (validSPO2) {
         Blynk.virtualWrite(V4, spo2);
-
-
-      if (validSPO2 && spo2 < 90)
-        digitalWrite(LED, HIGH);
-
-      else
-        digitalWrite(LED, LOW);
+      }
+      if (validHeartRate) {
+        Blynk.virtualWrite(V3, heartRate);
+      }
+      Blynk.virtualWrite(V2, room_temperature);
 
 
 
     }
-
     //After gathering 25 new samples recalculate HR and SP02
     maxim_heart_rate_and_oxygen_saturation(irBuffer, bufferLength, redBuffer, &spo2, &validSPO2, &heartRate, &validHeartRate);
   }
