@@ -1,5 +1,6 @@
 #include <Wire.h>
 #include "MAX30105.h"
+#define LED 4
 
 MAX30105 particleSensor;
 
@@ -9,6 +10,7 @@ long startTime; //Used to calculate measurement rate
 
 void setup() {
   Serial.begin(9600);
+  pinMode(LED, OUTPUT);
 
   // Initialize sensor
   if (particleSensor.begin(Wire, I2C_SPEED_FAST) == false) { //Use default I2C port, 400kHz speed
@@ -23,7 +25,7 @@ void setup() {
   int sampleRate = 400; //Options: 50, 100, 200, 400, 800, 1000, 1600, 3200
   int pulseWidth = 411; //Options: 69, 118, 215, 411
   int adcRange = 2048; //Options: 2048, 4096, 8192, 16384
-  
+
   //Configure sensor with these settings
   particleSensor.setup(ledBrightness, sampleAverage, ledMode, sampleRate, pulseWidth, adcRange);
 
@@ -57,7 +59,12 @@ void loop() {
 
   if (currentDelta > (long)100) {
     Serial.print(" Something is there!");
+    digitalWrite(LED, HIGH);
   }
+
+  else
+    digitalWrite(LED, LOW);
+
 
   Serial.println();
 }
