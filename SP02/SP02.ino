@@ -1,6 +1,6 @@
 #define BLYNK_TEMPLATE_ID "TMPLJdncHFvI"
 #define BLYNK_DEVICE_NAME "pulse oximeter"
-#define BLYNK_AUTH_TOKEN "mEqiKfHIa_5QngS_SyaSJVVsoeRiQsrW"
+//#define BLYNK_AUTH_TOKEN "mEqiKfHIa_5QngS_SyaSJVVsoeRiQsrW"
 
 #include <Wire.h>
 #include "MAX30105.h"
@@ -10,7 +10,8 @@
 MAX30105 particleSensor;
 
 #define MAX_BRIGHTNESS 255
-#define LED 4
+#define LED_Y 4
+#define LED_G 15
 
 #if defined(__AVR_ATmega328P__) || defined(__AVR_ATmega168__)
 //Arduino Uno doesn't have enough SRAM to store 100 samples of IR led data and red led data in 32-bit format
@@ -31,15 +32,16 @@ int8_t validHeartRate; //indicator to show if the heart rate calculation is vali
 byte pulseLED = 11; //Must be on PWM pin
 byte readLED = 13; //Blinks with each data read
 
-char auth[] = BLYNK_AUTH_TOKEN;             // You should get Auth Token in the Blynk App.
+//char auth[] = BLYNK_AUTH_TOKEN;             // You should get Auth Token in the Blynk App.
 char ssid[] = "D41-6";                              // Your WiFi credentials.
 char pass[] = "17171717";
 
 void setup()
 {
   Serial.begin(115200); // initialize serial communication at 115200 bits per second:
-  Blynk.begin(auth, ssid, pass);
-  pinMode(LED, OUTPUT);
+  //Blynk.begin(auth, ssid, pass);
+  pinMode(LED_Y, OUTPUT);
+  pinMode(LED_G, OUTPUT);
 
   pinMode(pulseLED, OUTPUT);
   pinMode(readLED, OUTPUT);
@@ -67,7 +69,6 @@ void setup()
 
 void loop()
 {
-  digitalWrite(LED, LOW);
   bufferLength = 100; //buffer length of 100 stores 4 seconds of samples running at 25sps
 
   //read the first 100 samples, and determine the signal range
@@ -123,28 +124,34 @@ void loop()
       Serial.print(F(", HRvalid="));
       Serial.print(validHeartRate, DEC);
 
-      Blynk.run();
+      //Blynk.run();
       Serial.print(F(", SPO2="));
       Serial.print(spo2, DEC);
 
       Serial.print(F(", SPO2Valid="));
       Serial.println(validSPO2, DEC);
 
-      if (validSPO2)
-        Blynk.virtualWrite(V4, spo2);
+      if (validSPO2) {
+        //Blynk.virtualWrite(V4, spo2);
 
+        if (spo2 < 90) {
+          digitalWrite(LED_Y, HIGH);
+          digitalWrite(LED_G, LOW);
+        }
+        else {
+          digitalWrite(LED_Y, LOW);
+          digitalWrite(LED_G, HIGH);
+        }
 
-      if (validSPO2 && spo2 < 90)
-        digitalWrite(LED, HIGH);
-
-      else
-        digitalWrite(LED, LOW);
-
-
-
+      }
+      else {
+        digitalWrite(LED_Y, LOW);
+        digitalWrite(LED_G, LOW);
+      }
     }
 
     //After gathering 25 new samples recalculate HR and SP02
     maxim_heart_rate_and_oxygen_saturation(irBuffer, bufferLength, redBuffer, &spo2, &validSPO2, &heartRate, &validHeartRate);
   }
-}
+
+  }

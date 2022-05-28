@@ -1,7 +1,10 @@
 #define BLYNK_TEMPLATE_ID "TMPL7HGhh_2B"
 #define BLYNK_DEVICE_NAME "MAX30102 BPM"
 #define BLYNK_AUTH_TOKEN "6lTJdYR90xqI0ECPw-mQ1OlLDTBpZAWH"
-#define LED 4
+
+#define LED_Y 4
+#define LED_G 15
+#define LED_R 2
 
 #include <Wire.h>
 #include "MAX30105.h"
@@ -26,7 +29,10 @@ char pass[] = "17171717";
 void setup() {
   Serial.begin(115200);
   Blynk.begin(auth, ssid, pass);
-  pinMode(LED, OUTPUT);
+  pinMode(LED_Y, OUTPUT);
+  pinMode(LED_G, OUTPUT);
+  pinMode(LED_R, OUTPUT);
+
 
   // Initialize sensor
   if (!particleSensor.begin(Wire, I2C_SPEED_FAST)) {
@@ -81,10 +87,23 @@ void loop() {
   Serial.println();
 
 
-  if (beatAvg<40||beatAvg>100)
-    digitalWrite(LED, HIGH);
+  if (beatAvg < 40) {
+    digitalWrite(LED_Y, HIGH);
+    digitalWrite(LED_G, LOW);
+    digitalWrite(LED_R, LOW);
+  }
 
-  else
-    digitalWrite(LED, LOW);
+  else if (beatAvg > 100) {
+    digitalWrite(LED_R, HIGH);
+    digitalWrite(LED_G, LOW);
+    digitalWrite(LED_Y, LOW);
+  }
+
+  else {
+    digitalWrite(LED_G, HIGH);
+    digitalWrite(LED_R, LOW);
+    digitalWrite(LED_Y, LOW);
+  }
+
 
 }
